@@ -3,7 +3,20 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <unordered_set>
+#include <set>
+#include <algorithm>
+
+Transition::Transition() {
+
+}
+
+Transition::Transition(int from, char letter, int to): from(from), letter(letter), to(to) {
+    
+}
+
+bool Transition::operator== (const Transition other) {
+    return this -> from == other.from && this -> letter == other.letter && this -> to == other.to;
+}
 
 Automaton::Automaton() {
 
@@ -13,16 +26,95 @@ Automaton::Automaton(const Automaton& other): id(other.id), states(other.states)
 
 }
 
-Automaton::Automaton(int id, std::unordered_set<char> states, std::vector<Transition> transitions, std::unordered_set<char> beginningStates, std::unordered_set<char> endingStates): id(id), states(states), transitions(transitions), beginningStates(beginningStates), endingStates(endingStates) {
+Automaton::Automaton(int id, std::set<int> states, std::vector<Transition> transitions, std::set<int> beginningStates, std::set<int> endingStates): id(id), states(states), transitions(transitions), beginningStates(beginningStates), endingStates(endingStates) {
 
 }
 
 Automaton& Automaton::operator = (const Automaton& other) {
+    if (this == &other) return *this; 
     this -> id = other.id;
     this -> states = other.states;
     this -> transitions = other.transitions;
     this -> beginningStates = other.beginningStates;
     this -> endingStates = other.endingStates;
+    return *this;
+}
+
+bool Automaton::isLetter (char c) {
+    return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == 238); //238 в ASCII таблицата е епсилон
+}
+
+int Automaton::getID() const {
+    return this -> getID();
+}
+
+std::vector<Transition> Automaton::getTransitions() const {
+    return this -> transitions;
+}
+
+std::set<int> Automaton::getStates() const {
+    return this -> states;
+}
+
+std::set<int> Automaton::getBeginningStates() const {
+    return this -> beginningStates;
+}
+
+std::set<int> Automaton::getEndingStates() const {
+    return this -> endingStates;
+}
+
+void Automaton::setID(int id) {
+    this -> id = id;
+}
+
+void Automaton::setTransitions(std::vector<Transition> other) {
+    this -> transitions = other;
+}
+
+void Automaton::setStates(std::set<int> other) {
+    this -> states = other;
+}
+
+void Automaton::setBeginningStates(std::set<int> other) {
+    this -> beginningStates = other;
+}
+
+void Automaton::setEndingStates(std::set<int> other) {
+    this -> endingStates = other;
+}
+
+void Automaton::addTransition(Transition other) {
+    transitions.push_back(other);
+}
+
+void Automaton::addState(int other) {
+    states.insert(other);
+}
+
+void Automaton::addBeginningState(int other) {
+    beginningStates.insert(other);
+}
+
+void Automaton::addEndingState(int other) {
+    endingStates.insert(other);
+}
+
+void Automaton::removeTransition(Transition other) {
+    std::vector<Transition>::iterator transitionPos = std::find(transitions.begin(), transitions.end(), other);
+    transitions.erase(transitionPos);
+}
+
+void Automaton::removeState(int other) {
+    states.erase(other);
+}
+
+void Automaton::removeBeginningState(int other) {
+    beginningStates.erase(other);
+}
+
+void Automaton::removeEndingState(int other) {
+    endingStates.erase(other);
 }
 
 void Automaton::write (std::ofstream& out) {
@@ -30,7 +122,7 @@ void Automaton::write (std::ofstream& out) {
 
     int statesSize = states.size();
     out.write(reinterpret_cast<char*>(&statesSize), sizeof(statesSize));
-    for(char x : states) {
+    for(int x : states) {
         out.write(reinterpret_cast<char*>(&x), sizeof(x));
     }
 
@@ -42,13 +134,13 @@ void Automaton::write (std::ofstream& out) {
 
     int beginningStatesSize = beginningStates.size();
     out.write(reinterpret_cast<char*>(&beginningStatesSize), sizeof(beginningStatesSize));
-    for(char x : beginningStates) {
+    for(int x : beginningStates) {
         out.write(reinterpret_cast<char*>(&x), sizeof(x));
     }
 
     int endingStatesSize = endingStates.size();
     out.write(reinterpret_cast<char*>(&endingStatesSize), sizeof(endingStatesSize));
-    for(char x : endingStates) {
+    for(int x : endingStates) {
         out.write(reinterpret_cast<char*>(&x), sizeof(x));
     }
 }
@@ -59,7 +151,7 @@ void Automaton::read (std::ifstream& in) {
     int statesSize;
     in.read(reinterpret_cast<char*>(&statesSize), sizeof(statesSize));
     for(int i = 0; i < statesSize; i++) {
-        char x;
+        int x;
         in.read(reinterpret_cast<char*>(&x), sizeof(x));
         states.insert(x);
     }
@@ -75,7 +167,7 @@ void Automaton::read (std::ifstream& in) {
     int beginningStatesSize;
     in.read(reinterpret_cast<char*>(&beginningStatesSize), sizeof(beginningStatesSize));
     for(int i = 0; i < beginningStatesSize; i++) {
-        char x;
+        int x;
         in.read(reinterpret_cast<char*>(&x), sizeof(x));
         beginningStates.insert(x);
     }
@@ -83,7 +175,7 @@ void Automaton::read (std::ifstream& in) {
     int endingStatesSize;
     in.read(reinterpret_cast<char*>(&endingStatesSize), sizeof(endingStatesSize));
     for(int i = 0; i < endingStatesSize; i++) {
-        char x;
+        int x;
         in.read(reinterpret_cast<char*>(&x), sizeof(x));
         endingStates.insert(x);
     }

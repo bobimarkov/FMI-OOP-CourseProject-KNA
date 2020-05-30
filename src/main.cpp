@@ -1,5 +1,7 @@
 #include "Helpers/StringHelper.hpp"
 #include "Automaton.hpp"
+#include "AutomatonList.hpp"
+#include "AutomatonOperations.hpp"
 
 #include <iostream>
 #include <string>
@@ -11,8 +13,6 @@
 bool openedFile = false;
 std::string openedFilePath;
 std::string fileName;
-
-std::vector<Automaton> automatons;
 
 void setFileName () {
     int countSlash = SH::count(openedFilePath,'/');
@@ -56,7 +56,7 @@ void open(std::string filePath) {
         while(in.tellg() != size && !in.eof()) {
             Automaton a;
             a.read(in);
-            automatons.push_back(a);
+            AutomatonList::automatons.push_back(a);
         }
 
         std::cout << "Successfully opened " << fileName << "!\n";
@@ -68,7 +68,7 @@ void open(std::string filePath) {
 void close() {
     if(openedFile) {
         openedFile = false;
-        automatons.clear();
+        AutomatonList::automatons.clear();
         std::cout << "Successfully closed " << fileName << "!\n";
     }
     else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
@@ -87,7 +87,7 @@ void saveas(std::string filePath) {
         openedFilePath = filePath;
         setFileName();
 
-        for(Automaton s: automatons) {
+        for(Automaton s: AutomatonList::automatons) {
             s.write(out);
         }
 
@@ -121,46 +121,139 @@ void exit(){
 
 
 void list () {
-
+    if (openedFile) {
+        std::cout << "IDs:\n";
+        for(Automaton a : AutomatonList::automatons) {
+            std::cout << a.getID() << std::endl;
+        }
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void print (int id) {
-
+    if (openedFile) {
+        for (Transition t : AutomatonList::automatons[id-1].getTransitions()) {
+            std::cout << "<" << t.from << "," << t.letter << "," << t.to << ">\n"; 
+        }
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void save (int id, std::string path) {
+    if (openedFile) {
+        std::ofstream out(path, std::ios::binary | std::ios::out);
 
+        if (!out.is_open()) {
+            std::cerr << "Error: Invalid file path!\n";
+            return;
+        }
+
+        AutomatonList::automatons[id-1].write(out);
+
+        std::cout << "Successfully saved automaton " << id << "in file " << fileName << "!\n"; 
+
+        out.close();
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void empty (int id) {
-
+    if (openedFile) {
+        bool emptyAlphabet = AutomatonList::automatons[id-1].getBeginningStates().size() == 1 && AutomatonList::automatons[id-1].getStates().size() == 1 && AutomatonList::automatons[id-1].getEndingStates().size() == 0;
+        std::cout << (emptyAlphabet ? "Empty!" : "Not empty!") << std::endl;
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void deterministic (int id) {
+    if (openedFile) {
+        bool hasEpsilonTransitions = false, hasMultipleTransitionsOneLetter = false;
 
+        for (Transition t : AutomatonList::automatons[id-1].getTransitions()) {
+            if (t.letter == 238) hasEpsilonTransitions = true;
+        }
+
+        for (char state : AutomatonList::automatons[id-1].getStates()) {
+            std::vector<std::pair<char, int>> transitionsCount;
+            for (Transition t : AutomatonList::automatons[id-1].getTransitions()) {
+                if (t.from == state) {
+                    int letterIndex = -1;
+                    for(int i = 0; i < transitionsCount.size(); i++) {
+                        if (t.letter == transitionsCount[i].first) letterIndex = i;
+                    }
+                    if (letterIndex > -1) transitionsCount[letterIndex].second++;
+                    else transitionsCount.push_back(std::make_pair(t.letter, 1)); 
+                }
+            }
+
+            for (std::pair<char,int> p : transitionsCount) {
+                if (p.second > 1) hasMultipleTransitionsOneLetter = true;
+            }
+        }
+
+        bool deterministic = AutomatonList::automatons[id-1].getBeginningStates().size() == 1 && !hasEpsilonTransitions && !hasMultipleTransitionsOneLetter;
+        
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void recognize  (int id, std::string word) {
-
+    if (openedFile) {
+        if(id >= 1 && id <= AutomatonList::automatons.size()) std::cout << word << (AutomatonOperations::automatonWordRecognition(AutomatonList::automatons[id-1], word) ? " was recognized" : " wasn't recognized") << std::endl;
+        else std::cerr << "Invalid id!\n";
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
  
 void _union (int id1, int id2) {
-
+    if (openedFile) {
+        if((id1 >= 1 && id1 <= AutomatonList::automatons.size()) && (id2 >= 1 && id2 <= AutomatonList::automatons.size())) {
+            AutomatonList::automatons.push_back(AutomatonOperations::automatonUnion(AutomatonList::automatons[id1-1], AutomatonList::automatons[id2-1]));
+            std::cout << "New automaton's id: " << AutomatonList::automatons.back().getID() << std::endl;
+        }
+        else std::cerr << "Invalid id!\n";
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void concat (int id1, int id2) {
-
+    if (openedFile) {
+        if((id1 >= 1 && id1 <= AutomatonList::automatons.size()) && (id2 >= 1 && id2 <= AutomatonList::automatons.size())) {
+            AutomatonList::automatons.push_back(AutomatonOperations::automatonConcat(AutomatonList::automatons[id1-1], AutomatonList::automatons[id2-1]));
+            std::cout << "New automaton's id: " << AutomatonList::automatons.back().getID() << std::endl;
+        }
+        else std::cerr << "Invalid id!\n";
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 } 
 
 void un (int id) {
-
+    if (openedFile) {
+        if(id >= 1 && id <= AutomatonList::automatons.size()) {
+            AutomatonList::automatons.push_back(AutomatonOperations::automatonUN(AutomatonList::automatons[id-1]));
+            std::cout << "New automaton's id: " << AutomatonList::automatons.back().getID() << std::endl;
+        }
+        else std::cerr << "Invalid id!\n";
+    }
+    else std::cerr << "There is not opened file! You can open file with 'open <file path>'\n";
 }
 
 void reg (std::string regex) {
-    
+    //regex check here (brackets + alphabet)
+    AutomatonOperations::convertRegex(regex);
+}
+
+void determine (int id) {
+
+}
+
+void isFiniteLang (int id) {
+
 }
 
 int main () {
+    reg("((((((a+b)*)+(c.b))*).a)*)");
+    return 0;
     std::cout << "Welcome to KNA!\n";
     while(true) {
         std::string command;

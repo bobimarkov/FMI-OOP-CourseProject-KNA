@@ -116,10 +116,11 @@ Automaton createAutomateFromLetter (char letter) {
 
 void processOperation (std::string regex, Automaton& mainAutomaton) {
     Automaton secondAutomaton;
-    
+
     char operation = regex[0];
-    
-    std::string secondArgument = regex.substr(1);
+
+    std::string secondArgument;
+    if(regex.length() > 1) secondArgument = regex.substr(1);
     
     if (secondArgument.length() > 1) secondAutomaton = AutomatonOperations::convertRegex(secondArgument);
     else if (secondArgument.length() == 1) secondAutomaton = createAutomateFromLetter(secondArgument[0]);
@@ -148,7 +149,7 @@ Automaton AutomatonOperations::convertRegex (std::string regex) {
                 break;
             }
             if (regex[i] == '*' && partBegin == -1) {
-                processOperation("" + regex[i], newAutomaton);
+                processOperation(std::string(1, regex[i]), newAutomaton);
                 regex.erase(regex.begin() + i);
                 break;
             }
@@ -162,8 +163,7 @@ Automaton AutomatonOperations::convertRegex (std::string regex) {
                 break;
             }
         }
-        std::cout << "Regex size: " << regex.length() << std::endl;
-        std::cout << regex << std::endl;
+        std::cout << regex << std::endl;    
     }
     return newAutomaton;
 }

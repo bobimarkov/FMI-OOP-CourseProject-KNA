@@ -122,7 +122,7 @@ void processOperation (std::string regex, Automaton& mainAutomaton) {
     else if(operation == '.') mainAutomaton = AutomatonOperations::automatonConcat(mainAutomaton, secondAutomaton);
     else if(operation == '*') mainAutomaton = AutomatonOperations::automatonKleeneStar(mainAutomaton);
 }
-
+//a+b.c
 Automaton AutomatonOperations::convertRegex (std::string regex) {
     Automaton newAutomaton;
     for (int i = 0; i < regex.size(); i++) {

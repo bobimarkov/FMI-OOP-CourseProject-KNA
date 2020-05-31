@@ -6,8 +6,16 @@
 #include <vector>
 #include <set>
 
+/// Съхранява преходите на автоматите.
+
 struct Transition {
-    int from, to;
+    /// Състоянието, от което се потегля.
+    int from;
+
+    /// Състоянието, към което отива прехода.
+    int to;
+
+    /// Буквата на състоянието.
     char letter;
 
     Transition();
@@ -16,12 +24,24 @@ struct Transition {
     bool operator== (const Transition);
 };
 
+///Представлява самият автомат.
+
 class Automaton {
     private:
+
+        ///Уникалното ID на автомата.
         int id;
+
+        ///Всички състояния в автомата.
         std::set<int> states;
+
+        ///Всички преходи в автомата.
         std::vector<Transition> transitions;
+
+        ///Всички начални състояния.
         std::set<int> beginningStates;
+
+        ///Всички крайни състояния.
         std::set<int> endingStates;
 
     public:
@@ -31,9 +51,12 @@ class Automaton {
 
         Automaton& operator = (const Automaton&);
 
+        /// Проверява дали буква е част от азбуката на автомата.
         static bool isLetter (char);
 
-        std::set<char> getLanguage();
+        /// Взима езика на автомат.
+        std::set<char> getAlphabet();
+
         int getID() const;
         std::vector<Transition> getTransitions() const;
         std::set<int> getStates() const;
@@ -56,10 +79,16 @@ class Automaton {
         void removeBeginningState(int);
         void removeEndingState(int);
 
+        ///Мутатор, който детерминира текущият автомат.
         void determinite();
+
+        ///Проверява езика на текущият автомат дали е краен.
         bool isFiniteLang() const;
 
+        ///Записва автомат в бинарен файл.
         void write (std::ofstream&);
+
+        ///Чете автомат от бинарен файл.
         void read (std::ifstream&);
 
 };

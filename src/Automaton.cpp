@@ -45,12 +45,12 @@ bool Automaton::isLetter (char c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == 238); //238 в ASCII таблицата е епсилон
 }
 
-std::set<char> Automaton::getLanguage() {
-    std::set<char> language;
+std::set<char> Automaton::getAlphabet() {
+    std::set<char> alphabet;
     for (Transition transition : transitions) {
-        if (transition.letter != (char)238) language.insert(transition.letter);
+        if (transition.letter != (char)238) alphabet.insert(transition.letter);
     }
-    return language;
+    return alphabet;
 }
 
 int Automaton::getID() const {
@@ -206,7 +206,7 @@ bool containsInMainColumn(std::vector<std::vector<std::set<int>>> grid, std::set
 }
 
 void Automaton::determinite() {
-    std::set<char> language = getLanguage();
+    std::set<char> alphabet = getAlphabet();
     std::vector<std::vector<std::set<int>>> grid;
 
     std::set<int> beginningState;
@@ -221,14 +221,14 @@ void Automaton::determinite() {
         }
     }
 
-    grid.push_back(std::vector<std::set<int>>(1+language.size()));
+    grid.push_back(std::vector<std::set<int>>(1 + alphabet.size()));
     grid[0][0] = beginningState;
     for (int i = 0; i < grid.size(); i++) {
         for(int j = 1; j < grid[i].size(); j++) {
             std::set<int> newState;
             for (int state : grid[i][0]) {
                 for (Transition transition : transitions) {
-                    if (transition.from == state && transition.letter == *std::next(language.begin(), j-1)) newState.insert(transition.to);
+                    if (transition.from == state && transition.letter == *std::next(alphabet.begin(), j-1)) newState.insert(transition.to);
                 }
             }
 
@@ -243,7 +243,7 @@ void Automaton::determinite() {
 
             grid[i][j] = newState;
             if (!containsInMainColumn(grid, newState) && newState.size() > 0) {
-                grid.push_back(std::vector<std::set<int>>(1 + language.size()));
+                grid.push_back(std::vector<std::set<int>>(1 + alphabet.size()));
                 grid.back()[0] = newState;
             } 
         }
@@ -267,7 +267,7 @@ void Automaton::determinite() {
 
     for (int i = 0; i < simpleGrid.size(); i++) {
         for (int j = 1; j < simpleGrid[i].size(); j++) {
-            if (simpleGrid[i][j] > 0) newAutomaton.addTransition(Transition(simpleGrid[i][0], *std::next(language.begin(), j - 1), simpleGrid[i][j]));
+            if (simpleGrid[i][j] > 0) newAutomaton.addTransition(Transition(simpleGrid[i][0], *std::next(alphabet.begin(), j - 1), simpleGrid[i][j]));
         }
     }
 

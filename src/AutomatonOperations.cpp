@@ -8,7 +8,7 @@
 
 Automaton AutomatonOperations::automatonUnion(const Automaton& first, const Automaton& second) {
     Automaton newAutomaton = first;
-    newAutomaton.setID(AutomatonList::automatons.size());
+    newAutomaton.setID(AutomatonList::automatons.size() + 1);
     
     int firstLastState = *(--newAutomaton.getStates().end());
 
@@ -30,6 +30,7 @@ Automaton AutomatonOperations::automatonUnion(const Automaton& first, const Auto
         newAutomaton.addTransition(Transition(newState, (char)238, begState));
     }
 
+    newAutomaton.setBeginningStates(std::set<int>());
     newAutomaton.addBeginningState(newState);
 
     return newAutomaton;
@@ -37,7 +38,7 @@ Automaton AutomatonOperations::automatonUnion(const Automaton& first, const Auto
 
 Automaton AutomatonOperations::automatonConcat(const Automaton& first, const Automaton& second) {
     Automaton newAutomaton;
-    newAutomaton.setID(AutomatonList::automatons.size());
+    newAutomaton.setID(AutomatonList::automatons.size() + 1);
     newAutomaton.setStates(first.getStates());
     newAutomaton.setBeginningStates(first.getBeginningStates());
     newAutomaton.setTransitions(first.getTransitions());
@@ -53,18 +54,10 @@ Automaton AutomatonOperations::automatonConcat(const Automaton& first, const Aut
         newAutomaton.addTransition(Transition(transition.from + firstLastState, transition.letter, transition.to + firstLastState));
     }
 
-    bool isSecondBeginningAlsoAnEnding = false;
     for(int firstEndingState : first.getEndingStates()) {
         for(int secondBeginningState : second.getBeginningStates()) {
             newAutomaton.addTransition(Transition(firstEndingState, (char)238, secondBeginningState + firstLastState));
-            if (second.getEndingStates().count(secondBeginningState) != 0) isSecondBeginningAlsoAnEnding = true;
         }   
-    }
-
-    if (!isSecondBeginningAlsoAnEnding) {
-        for(int firstEndingState : first.getEndingStates()) {
-            newAutomaton.addEndingState(firstEndingState);
-        }
     }
 
     return newAutomaton;
@@ -72,7 +65,7 @@ Automaton AutomatonOperations::automatonConcat(const Automaton& first, const Aut
 
 Automaton AutomatonOperations::automatonUN(const Automaton& automaton) {
     Automaton newAutomaton = automaton;
-    newAutomaton.setID(AutomatonList::automatons.size());
+    newAutomaton.setID(AutomatonList::automatons.size() + 1);
 
     for (int endingState : newAutomaton.getEndingStates()) {
         if (newAutomaton.getBeginningStates().count(endingState) != 0) newAutomaton.removeEndingState(endingState);
@@ -88,7 +81,7 @@ Automaton AutomatonOperations::automatonUN(const Automaton& automaton) {
 
 Automaton AutomatonOperations::automatonKleeneStar(const Automaton& automaton) {
     Automaton newAutomaton = automaton;
-    newAutomaton.setID(AutomatonList::automatons.size());
+    newAutomaton.setID(AutomatonList::automatons.size() + 1);
 
     bool toBeAddedNewState = true;
 
@@ -120,10 +113,10 @@ void processOperation (std::string regex, Automaton& mainAutomaton) {
     char operation = regex[0];
 
     std::string secondArgument;
-    if(regex.length() > 1) secondArgument = regex.substr(1);
+    if(regex.size() > 1) secondArgument = regex.substr(1);
     
-    if (secondArgument.length() > 1) secondAutomaton = AutomatonOperations::convertRegex(secondArgument);
-    else if (secondArgument.length() == 1) secondAutomaton = createAutomateFromLetter(secondArgument[0]);
+    if (secondArgument.size() > 1) secondAutomaton = AutomatonOperations::convertRegex(secondArgument);
+    else if (secondArgument.size() == 1) secondAutomaton = createAutomateFromLetter(secondArgument[0]);
 
     if (operation == '+') mainAutomaton = AutomatonOperations::automatonUnion(mainAutomaton, secondAutomaton);
     else if(operation == '.') mainAutomaton = AutomatonOperations::automatonConcat(mainAutomaton, secondAutomaton);
@@ -132,47 +125,61 @@ void processOperation (std::string regex, Automaton& mainAutomaton) {
 
 Automaton AutomatonOperations::convertRegex (std::string regex) {
     Automaton newAutomaton;
-    for (int i = 0; i < regex.length(); i++) {
+    for (int i = 0; i < regex.size(); i++) {
         if (Automaton::isLetter(regex[i])) {
             newAutomaton = createAutomateFromLetter(regex[i]);
             regex.erase(regex.begin() + i);
             break;
         }
     }
-    std::cout << regex << std::endl;
-    while (regex.length() > 0) {
+    while (regex.size() > 0) {
         int partBegin = -1;
-        int bracketControl = 0;
-        for (int i = 0; i < regex.length(); i++) {
+        int bracketControl = 0, plusCount = 0, pointCount = 0;
+        bool operatorPlus = false, operatorPoint = false;
+        for (int i = 0; i < regex.size(); i++) {
             if (regex[i] == ')' && regex[i-1] == '(') {
-                regex.erase(i-1,2);
-                break;
+                regex.erase(i-1, 2);
             }
             if (regex[i] == '*' && partBegin == -1) {
                 processOperation(std::string(1, regex[i]), newAutomaton);
                 regex.erase(regex.begin() + i);
                 break;
             }
-            if ((regex[i] == '+' || regex[i] == '.') && partBegin == -1) partBegin = i;
+            if (regex[i] == '+' && bracketControl == 0) plusCount++;
+            if (regex[i] == '.' && bracketControl == 0) pointCount++;
+            if ((regex[i] == '+' || regex[i] == '.') && partBegin == -1) {
+                partBegin = i;
+                if (regex[i] == '+') operatorPlus = true;
+                if (regex[i] == '.') operatorPoint = true;
+            }
             if (partBegin != -1 && regex[i] == '(') bracketControl++;
             if (partBegin != -1 && regex[i] == ')') bracketControl--;
-            if (bracketControl < 0) {
+            if (bracketControl < 0 || plusCount > 1 || (pointCount > 1 && !operatorPlus) || (operatorPoint && plusCount == 1)) {
                 std::string miniExpression = regex.substr(partBegin, i - partBegin);
                 processOperation(miniExpression, newAutomaton);
                 regex.erase(partBegin, i - partBegin);
                 break;
             }
+            else if (i == regex.size() - 1) {
+               std::string miniExpression = regex.substr(partBegin, i - partBegin + 1);
+                processOperation(miniExpression, newAutomaton);
+                regex.erase(partBegin, i - partBegin + 1);
+                break; 
+            }
         }
-        std::cout << regex << std::endl;    
     }
     return newAutomaton;
 }
 
 bool recognizeRecursion (int currentState, std::set<int> endingStates, std::vector<Transition> transitions, std::string word, int currentPosWord) {
-    if (currentPosWord == word.length() && endingStates.count(currentState) != 0) return true;  
-    for (Transition t : transitions) {
+    if (currentPosWord == word.size() && endingStates.count(currentState) != 0) return true;  
+
+    for (Transition t : transitions) { 
         if (currentState == t.from && word[currentPosWord] == t.letter ) {
             if (recognizeRecursion(t.to, endingStates, transitions, word, currentPosWord+1)) return true;
+        }
+        else if (currentState == t.from && t.letter == (char)238 ) {
+            if (recognizeRecursion(t.to, endingStates, transitions, word, currentPosWord)) return true;
         }
     }
     return false;

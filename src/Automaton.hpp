@@ -33,6 +33,7 @@ class Automaton {
 
         static bool isLetter (char);
 
+        std::set<char> getLanguage();
         int getID() const;
         std::vector<Transition> getTransitions() const;
         std::set<int> getStates() const;

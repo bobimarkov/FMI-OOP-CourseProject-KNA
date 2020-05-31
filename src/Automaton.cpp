@@ -1,4 +1,5 @@
 #include "Automaton.hpp"
+#include "AutomatonList.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -44,8 +45,16 @@ bool Automaton::isLetter (char c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == 238); //238 в ASCII таблицата е епсилон
 }
 
+std::set<char> Automaton::getLanguage() {
+    std::set<char> language;
+    for (Transition transition : transitions) {
+        if (transition.letter != (char)238) language.insert(transition.letter);
+    }
+    return language;
+}
+
 int Automaton::getID() const {
-    return this -> getID();
+    return this -> id;
 }
 
 std::vector<Transition> Automaton::getTransitions() const {
@@ -118,8 +127,6 @@ void Automaton::removeEndingState(int other) {
 }
 
 void Automaton::write (std::ofstream& out) {
-    out.write(reinterpret_cast<char*>(&id), sizeof(id));
-
     int statesSize = states.size();
     out.write(reinterpret_cast<char*>(&statesSize), sizeof(statesSize));
     for(int x : states) {
@@ -146,7 +153,7 @@ void Automaton::write (std::ofstream& out) {
 }
 
 void Automaton::read (std::ifstream& in) {
-    in.read(reinterpret_cast<char*>(&id), sizeof(id));
+    id = AutomatonList::automatons.size()+1;
 
     int statesSize;
     in.read(reinterpret_cast<char*>(&statesSize), sizeof(statesSize));
@@ -179,4 +186,122 @@ void Automaton::read (std::ifstream& in) {
         in.read(reinterpret_cast<char*>(&x), sizeof(x));
         endingStates.insert(x);
     }
+}
+
+bool equalSets(std::set<int> s1, std::set<int> s2) {
+    if (s1.size() == s2.size()) {
+        for (int x : s1) {
+            if (s2.count(x) == 0) return false;
+        }
+        return true; 
+    }
+    else return false;
+}
+
+bool containsInMainColumn(std::vector<std::vector<std::set<int>>> grid, std::set<int> state) {
+    for (int i = 0; i < grid.size(); i++) {
+        if (equalSets(grid[i][0], state)) return true;       
+    }
+    return false;
+}
+
+void Automaton::determinite() {
+    std::set<char> language = getLanguage();
+    std::vector<std::vector<std::set<int>>> grid;
+
+    std::set<int> beginningState;
+    for (int begState : beginningStates) beginningState.insert(begState);
+
+    for(std::set<int>::iterator begState = beginningState.begin(); begState != beginningState.end(); begState++) {
+        for(Transition transition : transitions) {
+            if (transition.letter == (char)238 && transition.from == *begState && beginningState.count(transition.to) == 0) {
+                beginningState.insert(transition.to);
+                begState = beginningState.begin();
+            }
+        }
+    }
+
+    grid.push_back(std::vector<std::set<int>>(1+language.size()));
+    grid[0][0] = beginningState;
+    for (int i = 0; i < grid.size(); i++) {
+        for(int j = 1; j < grid[i].size(); j++) {
+            std::set<int> newState;
+            for (int state : grid[i][0]) {
+                for (Transition transition : transitions) {
+                    if (transition.from == state && transition.letter == *std::next(language.begin(), j-1)) newState.insert(transition.to);
+                }
+            }
+
+            for(std::set<int>::iterator state = newState.begin(); state != newState.end(); state++) {
+                for(Transition transition : transitions) {
+                    if (transition.letter == (char)238 && transition.from == *state && newState.count(transition.to) == 0) {
+                        newState.insert(transition.to);
+                        state = newState.begin();
+                    }
+                }
+            }
+
+            grid[i][j] = newState;
+            if (!containsInMainColumn(grid, newState) && newState.size() > 0) {
+                grid.push_back(std::vector<std::set<int>>(1 + language.size()));
+                grid.back()[0] = newState;
+            } 
+        }
+    }
+
+    std::vector<std::vector<int>> simpleGrid(grid.size(), std::vector<int>(grid[0].size()));
+    for(int i = 0; i < simpleGrid.size(); i++) simpleGrid[i][0] = i+1;
+
+    for (int i = 0; i < grid.size(); i++) {
+        for(int j = 1; j < grid[i].size(); j++) {
+            for(int n = 0; n < grid.size(); n++) {
+                if (equalSets(grid[n][0], grid[i][j])) simpleGrid[i][j] = n + 1;
+            }
+        }
+    }
+
+    Automaton newAutomaton;
+    for(int i = 0; i < simpleGrid.size(); i++) newAutomaton.addState(i+1);
+    newAutomaton.addBeginningState(1);
+    newAutomaton.setID(id);
+
+    for (int i = 0; i < simpleGrid.size(); i++) {
+        for (int j = 1; j < simpleGrid[i].size(); j++) {
+            if (simpleGrid[i][j] > 0) newAutomaton.addTransition(Transition(simpleGrid[i][0], *std::next(language.begin(), j - 1), simpleGrid[i][j]));
+        }
+    }
+
+    for (int i = 0; i < grid.size(); i++) {
+        for(int endingState : endingStates) {
+            if (grid[i][0].count(endingState) != 0) newAutomaton.addEndingState(i+1);
+        }
+    }
+
+    *this = newAutomaton;
+}
+
+bool cycleRecursion (int currentState, std::set<int> endingStates, std::vector<Transition> transitions, std::set<int> passedStates ) {
+    passedStates.insert(currentState);
+    int fromTransitions = 0;
+    for(Transition t : transitions) {
+        if (currentState == t.from) fromTransitions++;
+    }
+    if (fromTransitions == 0) return false;  
+
+    for (Transition t : transitions) {
+        if (currentState == t.from && passedStates.count(t.to) != 0) return true; 
+        if (currentState == t.from && passedStates.count(t.to) == 0) {
+            if (cycleRecursion(t.to, endingStates, transitions, passedStates)) return true;
+        }
+    }
+    return false;
+}
+
+bool Automaton::isFiniteLang() const {
+    bool cycle = false;
+    for(int beginningState : beginningStates) {
+        cycle = cycleRecursion(beginningState, endingStates, transitions, {});
+        if (cycle) break;
+    }
+    return !cycle;   
 }
